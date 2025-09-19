@@ -1,0 +1,40 @@
+policy:
+  no_code_edits: true
+  abstention: "Correct > Abstain >> Confidently wrong"
+
+budgets:
+  encoder: o200k_base
+  token_limit: 200000
+  limiter: sequential   # auto-switches to truncated if over budget
+
+rare_facts:
+  env: []       # keep empty or add keys your env must expose
+  flags: []     # add repo-specific constants only if you want strict verification
+  paths: []     # add required paths only if you want strict verification
+
+pack:
+  write_md: true
+  dependencies: true
+  dependency_kinds: ["import","call","async_call","http","db","queue"]
+  secret_scrub: true
+  metrics: true
+  per_file_snippet_lines: 180
+  tail_lines_on_truncate: 40
+  mid_block_pick: "largest_function"
+
+evals:
+  doc_coverage: 0.85
+  symbol_consistency: 0.95
+  token_efficiency_nonworsening: true
+  human_review_if_coverage_below: 0.90
+  dep_sanity: true
+  pack_freshness: true
+
+links:
+  repos: []   # e.g. [{name: "frontend", pack_uri: "../frontend/contexter/pack/CONTEXTPACK.md"}]
+
+automation:
+  watch: false
+  notify: []
+
+languages: ["python","javascript","typescript","cpp","cuda","go","java","rust"]
