@@ -1,156 +1,45 @@
 # Contexter — Getting Started
 
-**Goal:** create a single, LLM-friendly Markdown pack (`contexter/pack/CONTEXTPACK.md`) for any repo, while never touching source code.
-**You only need:** `ctx.py`, `CONTEXTER.yaml`, `PLAN.md`.
-
----
+**Goal:** produce one LLM-friendly Markdown pack (`contexter/pack/CONTEXTPACK.md`) for any repo, while never touching source code.  
+**Needed:** `ctx.py`, `CONTEXTER.yaml`, `PLAN.md`.
 
 ## TL;DR
 
-**Codex (start every session):**
-
+**Codex (start):**
 ```
+
 Plan mode. Treat contexter/pack/CONTEXTPACK.md as the context of truth.
-Never edit source code. Only update PLAN.md.
+Never edit source code. Only update PLAN.md and contexter/.
 When unsure, add QUESTIONS to PLAN.md and stop.
-```
 
-**Human (first run in any repo):**
+````
 
-```bash
-# From the repo root
-curl -sSL https://raw.githubusercontent.com/agora/contexter/main/ctx.py -o ctx.py
-curl -sSL https://raw.githubusercontent.com/agora/contexter/main/CONTEXTER.yaml -o CONTEXTER.yaml
-[ -f PLAN.md ] || curl -sSL https://raw.githubusercontent.com/agora/contexter/main/PLAN.md -o PLAN.md
-chmod +x ctx.py
-python3 -m pip install -q pyyaml
-python3 ctx.py run
-```
-
-This writes `contexter/pack/CONTEXTPACK.md`. Point Codex at it and begin the **plan → execute → sync** loop.
-
----
-
-## Why this method (5-Whys compressed)
-
-* **Why pack one file?** So the agent reads less and guesses less.
-* **Why Markdown?** It’s simple, compact, and parsed well by LLMs.
-* **Why two human files?** Less setup, less drift: `CONTEXTER.yaml` for policy, `PLAN.md` for progress.
-* **Why never edit source?** Safety. Docs evolve without risking code.
-* **Why abstain when unsure?** It stops confident wrong changes and forces clear QUESTIONS.
-
----
-
-## 1) Prerequisites
-
-* Python 3.9+ (3.10+ recommended)
-* `pip install pyyaml`
-* `curl` (or PowerShell `iwr` on Windows)
-
----
-
-## 2) Bootstrap in any repo (human)
-
-**macOS/Linux:**
-
+**Human (first run):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/agora/contexter/main/ctx.py -o ctx.py
 curl -sSL https://raw.githubusercontent.com/agora/contexter/main/CONTEXTER.yaml -o CONTEXTER.yaml
-[ -f PLAN.md ] || curl -sSL https://raw.githubusercontent.com/agora/contexter/main/PLAN.md -o PLAN.md
+[ -f PLAN.md ] || printf "# PLAN\n\n## QUESTIONS\n\n## PROGRESS\n" > PLAN.md
 chmod +x ctx.py
 python3 -m pip install -q pyyaml
 python3 ctx.py run
-```
+````
 
-**Windows PowerShell:**
+## Why this works
 
-```powershell
-iwr https://raw.githubusercontent.com/agora/contexter/main/ctx.py -OutFile ctx.py
-iwr https://raw.githubusercontent.com/agora/contexter/main/CONTEXTER.yaml -OutFile CONTEXTER.yaml
-if (!(Test-Path PLAN.md)) { iwr https://raw.githubusercontent.com/agora/contexter/main/PLAN.md -OutFile PLAN.md }
-python -m pip install pyyaml
-python ctx.py run
-```
+* One file to ingest (`CONTEXTPACK.md`) → fewer guesses, faster planning.
+* No scope config needed; safe defaults in `ctx.py` skip heavy/hidden/binary paths.
+* Dep-sanity is **warn** by default (won’t block you), yet issues show up in METRICS.
+* Smart truncation keeps tokens within budget on big repos.
 
-> For deterministic CI, replace `main` with a tag or commit SHA.
+## Daily loop
 
----
+1. Change code → `python3 ctx.py run`.
+2. Tell Codex to propose next 3–5 small steps and append PROGRESS/DECISIONS/NEXT to `PLAN.md`.
+3. If anything is unclear, Codex adds QUESTIONS to `PLAN.md` and pauses.
 
-## 3) Use with Codex (no IDE needed)
+## Multi-repo (optional)
 
-**Kickoff message to Codex:**
-
-```
-Plan mode. Use contexter/pack/CONTEXTPACK.md as the context of truth.
-Never edit source code; only write to PLAN.md and contexter/.
-Propose the next 3–5 atomic, verifiable steps with acceptance checks.
-If any fact is missing, prepend QUESTIONS to PLAN.md and pause.
-After each 3–5 steps: append PROGRESS/DECISIONS/NEXT to PLAN.md.
-```
-
-**Loop:**
-
-1. Codex reads `CONTEXTPACK.md` (SUMMARY + DEPENDENCY GRAPH).
-2. Codex updates `PLAN.md` with small steps.
-3. You run the commands it proposes (e.g., `python3 ctx.py run`).
-4. Codex appends PROGRESS/DECISIONS/NEXT to `PLAN.md`.
-5. Repeat.
-
-**Stop when unsure:** Codex adds **QUESTIONS** at the top of `PLAN.md` and pauses.
-
----
-
-## 4) What gets generated
-
-* `contexter/pack/CONTEXTPACK.md`
-
-  * **Front-matter:** version, time, branch, commit, encoder, token limit, limiter.
-  * **SUMMARY:** file count, token estimate, truncated status.
-  * **DEPENDENCY GRAPH:** lines like `A -> B (import|call|async_call|http|db|queue)`.
-  * **FILES:** per file → **ANCHORS** + **CODE** fences (`# Lx–Ly`).
-  * **METRICS/NOTES:** gates, duration, next steps.
-
----
-
-## 5) Config is general (no scope lists)
-
-The default `CONTEXTER.yaml` is repo-agnostic. No `scope:` required.
-`ctx.py` skips heavy/hidden paths by default and supports many languages via `languages:` hints.
-
-You can add rare facts later (only if you want strict checks):
-
-```yaml
-rare_facts:
-  env: ["DB_URL"]        # needed env keys
-  flags: ["FEATURE_X"]   # repo constants that must exist
-  paths: ["DATA_DIR"]    # required paths
-```
-
-If a listed fact is missing, the run abstains and Codex must add **QUESTIONS** to `PLAN.md`.
-
----
-
-## 6) Keep it fresh
-
-**Manual:**
-
-```bash
-python3 ctx.py run
-```
-
-**Auto-watch (local):**
-
-```bash
-python3 ctx.py watch
-```
-
-**CI idea:** on push to `main`, run `python3 ctx.py run`. Upload `contexter/pack/CONTEXTPACK.md` as an artifact or commit it to a docs branch.
-
----
-
-## 7) Multi-repo (no servers, no MCP)
-
-When another repo has a `CONTEXTPACK.md`, link it in `CONTEXTER.yaml`:
+Link neighbor packs in `CONTEXTER.yaml`:
 
 ```yaml
 links:
@@ -165,42 +54,87 @@ Then:
 python3 ctx.py hub build
 ```
 
-This writes `contexter/hub/graph.md` with simple cross-repo edges.
+Packs only. No MCP or servers required.
+
+````
 
 ---
 
-## 8) Guardrails and gates
+# README.md
+```md
+# Contexter
 
-* **No-code-edits:** fails if anything outside `/contexter/`, `.contexter/`, `CONTEXTER.yaml`, `PLAN.md` changes.
-* **Token budget:** flips to `truncated` (head/mid/tail) when over limit.
-* **Dep sanity & freshness:** pack must be newer than latest code change; deps must be sane.
-* **Human review hint:** if coverage below your threshold, NOTES flags it.
+**Author:** Gudjon Mar Gudjonsson  
+**License:** MIT
 
----
+Contexter generates a **single, LLM-ready Markdown pack** for any repository.  
+It gives AI coding agents (like Codex) a compact, navigable picture of your codebase — with anchors, a dependency graph, and stable snippets — **without touching source code**.
 
-## 9) Troubleshooting
+## Why
+- Large prompts cause context bloat and drift.
+- Agents hallucinate on repo-specific “singleton facts”.
+- Teams overcompensate with huge logs or guessy edits.
 
-* Pack missing → confirm Python + PyYAML, and you’re at repo root.
-* “GATE\_FAILED” → open `PLAN.md` → PROGRESS; ask Codex to add QUESTIONS and suggest a smaller next step.
-* Pack large → let `limiter: truncated` keep head/mid/tail or lower `token_limit`.
-* Sensitive strings → secret scrub is on; keep high-risk files out of the repo if needed.
+**Contexter fixes this** by packing the repo into one Markdown file that agents can scan fast, plus a simple plan file agents can update safely.
 
----
+## What you get
+- `contexter/pack/CONTEXTPACK.md`  
+  - Front-matter (version, commit, budget).  
+  - SUMMARY (file count, token estimate, truncation).  
+  - DEPENDENCY GRAPH (import|http|db|queue).  
+  - FILES with **anchors** and **code fences**.  
+  - METRICS/NOTES (duration, freshness, dep warnings).
 
-## 10) Upgrade the runner
+- `CONTEXTER.yaml` (repo-agnostic config; no scope needed).  
+- `PLAN.md` (Codex writes PROGRESS/QUESTIONS; humans read).
 
-Refresh `ctx.py` and `CONTEXTER.yaml`, keep `PLAN.md`:
-
+## Quick start
 ```bash
 curl -sSL https://raw.githubusercontent.com/agora/contexter/main/ctx.py -o ctx.py
 curl -sSL https://raw.githubusercontent.com/agora/contexter/main/CONTEXTER.yaml -o CONTEXTER.yaml
+[ -f PLAN.md ] || printf "# PLAN\n\n## QUESTIONS\n\n## PROGRESS\n" > PLAN.md
 chmod +x ctx.py
+python3 -m pip install -q pyyaml
 python3 ctx.py run
+````
+
+## Use with Codex (no IDE required)
+
 ```
+Plan mode. Use contexter/pack/CONTEXTPACK.md as the context of truth.
+Never edit source code; only write to PLAN.md and contexter/.
+Propose the next 3–5 atomic steps with acceptance checks.
+If unsure, add QUESTIONS to PLAN.md and stop.
+```
+
+## Safe by default
+
+* Guard: fails if anything outside `/contexter/`, `.contexter/`, `CONTEXTER.yaml`, `PLAN.md`, `ctx.py` changes.
+* Secret scrub: redacts common tokens in pack output.
+* Dep sanity: **warn** by default; switch to **strict** when you add path aliases.
+
+## Multi-repo (optional)
+
+Add links in `CONTEXTER.yaml`, then:
+
+```bash
+python3 ctx.py hub build
+```
+
+## License
+MIT © Gudjon Mar Gudjonsson
+
+````
 
 ---
 
-**Done.**
-Two human files (`CONTEXTER.yaml`, `PLAN.md`).
-One command (`python3 ctx.py run`).
-One pack (`contexter/pack/CONTEXTPACK.md`) for Codex to work fast and safely.
+## What changed vs before (so you don’t hit blockers again)
+- **dep_sanity now “warn”** by default (no hard fail, but reports counts).
+- **Path aliases + ignore_targets** let you map package imports to files and ignore externals cleanly.
+- **Stable dep kinds** (no function-call heuristics) avoid thousands of false edges.
+- **Scope-free defaults** reduce setup to just two files + one command.
+
+You can paste these in now and run:
+```bash
+python3 ctx.py run
+````
