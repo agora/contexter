@@ -2,36 +2,60 @@ policy:
   no_code_edits: true
   abstention: "Correct > Abstain >> Confidently wrong"
 
+# No scope section needed — ctx.py provides safe defaults (skips node_modules, build, binaries, large assets)
+
 budgets:
   encoder: o200k_base
   token_limit: 200000
-  limiter: sequential   # auto-switches to truncated if over budget
+  limiter: sequential      # auto-switches to truncated when required
 
 rare_facts:
-  env: []       # keep empty or add keys your env must expose
-  flags: []     # add repo-specific constants only if you want strict verification
-  paths: []     # add required paths only if you want strict verification
+  env: []                  # add keys if you want strict env verification
+  flags: []                # add repo constants to forbid guessing
+  paths: []                # add required paths (e.g., "DATA_DIR")
 
 pack:
   write_md: true
   dependencies: true
-  dependency_kinds: ["import","call","async_call","http","db","queue"]
+  dependency_kinds: ["import","http","db","queue"]   # stable by default (no "call"/"async_call" noise)
   secret_scrub: true
   metrics: true
   per_file_snippet_lines: 180
   tail_lines_on_truncate: 40
   mid_block_pick: "largest_function"
 
+deps:
+  # 'warn' prevents hard failures but surfaces issues in METRICS/NOTES.
+  # Modes: off | warn | strict
+  sanity_mode: "warn"
+
+  # Targets that should never be checked on disk:
+  ignore_targets:
+    - "^https?://"
+    - "^queue:"
+    - "^db:"
+    - "^<symbol:"
+
+  # Map package-like imports to real paths. Most repos work well with these defaults.
+  path_aliases:
+    # Python package roots → filesystem
+    - from: "^([a-zA-Z0-9_]+)\\."
+      to: "\\1"                        # package "oz_core.utils" → "oz_core/utils.py" or "oz_core/utils/__init__.py"
+    - from: "^services\\.([a-zA-Z0-9_\\-]+)\\."
+      to: "services/\\1/src"
+    # TS baseUrl/alias examples (adjust if used)
+    - from: "^@/(.*)$"
+      to: "src/\\1"
+
 evals:
   doc_coverage: 0.85
   symbol_consistency: 0.95
   token_efficiency_nonworsening: true
   human_review_if_coverage_below: 0.90
-  dep_sanity: true
   pack_freshness: true
 
 links:
-  repos: []   # e.g. [{name: "frontend", pack_uri: "../frontend/contexter/pack/CONTEXTPACK.md"}]
+  repos: []   # e.g. [{ name: "frontend", pack_uri: "../frontend/contexter/pack/CONTEXTPACK.md" }]
 
 automation:
   watch: false
