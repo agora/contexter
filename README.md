@@ -47,27 +47,6 @@ Codex will:
 
 ---
 
-## Human Quick Start (manual bootstrap)
-
-From your repo root:
-
-```bash
-curl -sSL https://raw.githubusercontent.com/agora/contexter/main/ctx.py -o ctx.py
-curl -sSL https://raw.githubusercontent.com/agora/contexter/main/CONTEXTER.yaml -o CONTEXTER.yaml
-[ -f PLAN.md ] || printf "# PLAN\n\n## QUESTIONS\n\n## PROGRESS\n" > PLAN.md
-chmod +x ctx.py
-python3 -m pip install -q pyyaml
-python3 ctx.py run
-```
-
-This generates:
-
-```
-contexter/pack/CONTEXTPACK.md
-```
-
----
-
 ## Daily Workflow
 
 * After code changes:
